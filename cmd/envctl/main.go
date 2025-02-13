@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/Siddhesh-Agarwal/envctl/internal/app"
@@ -71,6 +72,7 @@ func createListCommand() *cobra.Command {
 				fmt.Println("No keys stored")
 				return
 			}
+			sort.Strings(keys) // sort the keys
 			for _, key := range keys {
 				fmt.Println(key)
 			}
