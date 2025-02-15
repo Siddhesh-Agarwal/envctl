@@ -23,6 +23,7 @@ func main() {
 		createListCommand(),
 		createDeleteCommand(),
 		createExportCommand(),
+		createVersionCommand(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {
