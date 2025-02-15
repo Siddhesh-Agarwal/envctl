@@ -30,17 +30,20 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.20.x'
+        go-version: '1.21.x'
         check-latest: true
+
+    - name: Test
+      run: go test -v ./...
 
     - name: Build
       run: |
         OUTPUT="envctl-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
-        go build -ldflags="-s -w" -o bin/$OUTPUT ./cmd/envctl
+        go build -ldflags="-s -w" -trimpath -o bin/$OUTPUT ./cmd/envctl
         echo "BUILD_VERSION=$(git describe --tags --always)" >> $GITHUB_ENV
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: envctl-binaries
         path: bin/
@@ -54,7 +57,7 @@ jobs:
     
     steps:
     - name: Download artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: envctl-binaries
         path: release-binaries
@@ -65,8 +68,10 @@ jobs:
         files: |
           release-binaries/*
         body: |
-          Automated build of envctl
-          - Commit: ${{ github.sha }}
-          - Version: ${{ env.BUILD_VERSION }}
+          ### Build Details
+          - **Version**: ${{ env.BUILD_VERSION }}
+          - **Commit**: [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+          - **Build Date**: ${{ steps.prep.outputs.date }}
+        tag_name: ${{ github.ref_name }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
