@@ -45,6 +45,16 @@ func createSetCommand() *cobra.Command {
 	}
 }
 
+func createVersionCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Show the version of envctl",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("envctl version: %s\n", app.Version)
+		},
+	}
+}
+
 func createGetCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <key>",

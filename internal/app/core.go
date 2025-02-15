@@ -13,6 +13,8 @@ const (
 	saltSize   = 16
 )
 
+const Version string = "0.1.0"
+
 type EncryptedData struct {
 	Salt       []byte `json:"salt"`
 	Nonce      []byte `json:"nonce"`
