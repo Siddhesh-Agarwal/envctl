@@ -22,6 +22,7 @@ func main() {
 		createGetCommand(),
 		createListCommand(),
 		createDeleteCommand(),
+		createExportCommand(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {
@@ -107,6 +108,43 @@ func createDeleteCommand() *cobra.Command {
 	}
 	deleteCmd.Flags().BoolP("yes", "y", false, "force deletion without confirmation")
 	return deleteCmd
+}
+
+func createExportCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "export <key> [filename]",
+		Short: "Export a key's value to a .env file",
+		Args:  cobra.RangeArgs(1, 2),
+		Run: func(cmd *cobra.Command, args []string) {
+			key := args[0]
+			filename := ".env"
+			if len(args) > 1 {
+				filename = args[1]
+			}
+
+			password := promptPassword("Enter master password: ")
+			value, err := app.RetrieveDecryptedValue(key, password)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+
+			//Create .env file if it doesn't exist.  Append if it does.
+			file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error creating/opening .env file: %v\n", err)
+				os.Exit(1)
+			}
+			defer file.Close()
+
+			if _, err := file.WriteString(fmt.Sprintf("%s=\"%s\"\n", key, value)); err != nil {
+				fmt.Fprintf(os.Stderr, "Error writing to .env file: %v\n", err)
+				os.Exit(1)
+			}
+
+			fmt.Printf("Key '%s' exported to '%s'\n", key, filename)
+		},
+	}
 }
 
 func promptPassword(prompt string) []byte {
