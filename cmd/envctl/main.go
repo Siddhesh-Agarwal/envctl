@@ -76,8 +76,9 @@ func createGetCommand() *cobra.Command {
 
 func createListCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
-		Short: "List all stored keys",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List all stored keys",
 		Run: func(cmd *cobra.Command, args []string) {
 			keys := app.ListStoredKeys()
 			if len(keys) == 0 {
@@ -94,9 +95,10 @@ func createListCommand() *cobra.Command {
 
 func createDeleteCommand() *cobra.Command {
 	deleteCmd := &cobra.Command{
-		Use:   "delete <key>",
-		Short: "Delete a stored key",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <key>",
+		Aliases: []string{"rm"},
+		Short:   "Delete a stored key",
+		Args:    cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			key := args[0]
 			force, err := cmd.Flags().GetBool("yes")
