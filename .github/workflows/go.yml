@@ -1,77 +1,97 @@
-name: Build and Release
+name: CI/CD Pipeline
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
-  build:
-    name: Build
+  cross-platform-build:
+    name: Build Binaries
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [linux, windows]
-        goarch: [amd64]
-        include:
-          - goos: linux
-            ext: ""
-          - goos: windows
-            ext: ".exe"
+        platform: [linux-amd64, windows-amd64]
     env:
-      GOOS: ${{ matrix.goos }}
-      GOARCH: ${{ matrix.goarch }}
+      GOOS: ${{ matrix.platform.split('-')[0] }}
+      GOARCH: ${{ matrix.platform.split('-')[1] }}
       CGO_ENABLED: 0
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-    - name: Set up Go
+    - name: Install Go Toolchain
       uses: actions/setup-go@v4
       with:
         go-version: '1.21.x'
         check-latest: true
 
-    - name: Test
-      run: go test -v ./...
+    - name: Run Unit Tests
+      run: go test -v -coverprofile=coverage.out ./...
 
-    - name: Build
+    - name: Build Optimized Binary
       run: |
-        OUTPUT="envctl-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
-        go build -ldflags="-s -w" -trimpath -o bin/$OUTPUT ./cmd/envctl
-        echo "BUILD_VERSION=$(git describe --tags --always)" >> $GITHUB_ENV
+        OUTPUT="envctl-${{ env.GOOS }}-${{ env.GOARCH }}${{ contains(matrix.platform, 'windows') && '.exe' || '' }}"
+        go build \
+          -trimpath \
+          -ldflags="-s -w -X main.buildVersion=$(git describe --tags --always)" \
+          -o bin/$OUTPUT ./cmd/envctl
 
-    - name: Upload artifacts
+    - name: Generate Checksums
+      run: |
+        cd bin
+        sha256sum * > checksums.txt
+
+    - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: envctl-binaries
-        path: bin/
-        retention-days: 3
+        name: envctl-${{ matrix.platform }}-binaries
+        path: |
+          bin/*
+          !bin/coverage*
+        retention-days: 7
 
-  release:
-    name: Create Release
-    needs: [build]
+  publish-release:
+    name: Publish Release
+    needs: cross-platform-build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     
     steps:
-    - name: Download artifacts
+    - name: Download All Artifacts
       uses: actions/download-artifact@v4
       with:
-        name: envctl-binaries
-        path: release-binaries
+        path: release-artifacts
+        pattern: envctl-*-binaries
+        merge-multiple: true
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        files: |
-          release-binaries/*
+        name: "EnvCTL ${{ github.ref_name }}"
         body: |
-          ### Build Details
-          - **Version**: ${{ env.BUILD_VERSION }}
-          - **Commit**: [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
-          - **Build Date**: ${{ steps.prep.outputs.date }}
+          ## Release Details
+          🔖 **Version**: ${{ github.ref_name }}
+          🚀 **Commit**: [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+          📅 **Build Date**: ${{ steps.date.outputs.date }}
+
+          ### Verification
+          ```bash
+          sha256sum -c checksums.txt
+          ```
         tag_name: ${{ github.ref_name }}
+        files: |
+          release-artifacts/**/*
+        draft: false
+        prerelease: ${{ contains(github.ref_name, 'rc') }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set Current Date
+      id: date
+      run: echo "date=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
