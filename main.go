@@ -388,7 +388,7 @@ var getCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("%s=%s\n", key, value)
+		fmt.Println(value)
 	},
 }
 
