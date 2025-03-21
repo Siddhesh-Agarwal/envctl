@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -208,13 +207,13 @@ func saveStore(password string) error {
 	}
 
 	// Write store to file
-	return ioutil.WriteFile(storePath, storeData, 0600)
+	return os.WriteFile(storePath, storeData, 0600)
 }
 
 // loadStore loads the secrets from the store file
 func loadStore(password string) error {
 	// Read store from file
-	storeData, err := ioutil.ReadFile(storePath)
+	storeData, err := os.ReadFile(storePath)
 	if err != nil {
 		return err
 	}
