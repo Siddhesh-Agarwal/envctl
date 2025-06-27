@@ -323,7 +323,7 @@ var setCmd = &cobra.Command{
 	Use:   "set [key] [value]",
 	Short: "Set a secret",
 	Long:  `Set a secret key-value pair.`,
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if !storeExists() {
 			fmt.Println("Store does not exist. Run 'envctl init' first.")
@@ -331,7 +331,11 @@ var setCmd = &cobra.Command{
 		}
 
 		key := args[0]
-		value := args[1]
+		value, err := promptPassword("Enter secret value: ")
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
 
 		password, err := promptPassword("Enter master password: ")
 		if err != nil {
@@ -433,6 +437,54 @@ var removeCmd = &cobra.Command{
 	},
 }
 
+var exportCmd = &cobra.Command{
+	Use:   "export [key]",
+	Short: "Export a secret to a .env file",
+	Long:  "Export a secret to a .env file in the current directory. If no .env file exists, it will be created.",
+	Args:  cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		if !storeExists() {
+			fmt.Println("Store does not exist. Run 'envctl init' first.")
+			return
+		}
+		password, err := promptPassword("Enter master password: ")
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+
+		if err := loadStore(password); err != nil {
+			fmt.Println("Error loading store:", err)
+			return
+		}
+
+		for _, key := range args {
+			value, exists := secrets[key]
+			if !exists {
+				fmt.Printf("Secret '%s' not found.\n", key)
+				continue
+			}
+
+			filename := fmt.Sprintf("%s.env", key)
+			file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+			if err != nil {
+				fmt.Printf("Error opening file '%s': %v\n", filename, err)
+				continue
+			}
+			defer file.Close()
+
+			_, err = file.WriteString(fmt.Sprintf("%s=%s\n", key, value))
+			if err != nil {
+				fmt.Printf("Error writing to file '%s': %v\n", filename, err)
+				continue
+			}
+
+			fmt.Printf("Secret '%s' exported to '%s'.\n", key, filename)
+		}
+		fmt.Println("Export completed.")
+	},
+}
+
 func main() {
 	// Add commands to root command
 	rootCmd.AddCommand(initCmd)
@@ -440,6 +492,7 @@ func main() {
 	rootCmd.AddCommand(setCmd)
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(removeCmd)
+	rootCmd.AddCommand(exportCmd)
 
 	// Execute the root command
 	if err := rootCmd.Execute(); err != nil {
